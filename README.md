@@ -4,7 +4,7 @@ A 3D room-planning application that optimizes a real home around the furniture a
 
 ## Product status
 
-This repository currently contains the product specification for the first implementation. The product name is provisional.
+This repository contains the product specification and a controlled, runnable single-room MVP. The full product scope and later phases remain documented below and are not all implemented yet. The product name is provisional. See [README-MVP.md](README-MVP.md) for setup, implementation details, and current boundaries.
 
 ## 1. Product vision
 
