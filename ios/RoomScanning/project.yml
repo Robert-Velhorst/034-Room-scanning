@@ -1,0 +1,19 @@
+name: RoomScanning
+options:
+  bundleIdPrefix: online.noodzakelijk
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  RoomScanning:
+    type: application
+    platform: iOS
+    sources:
+      - path: RoomScanning
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: online.noodzakelijk.roomscanning
+        PRODUCT_NAME: Room Scanning
+        INFOPLIST_KEY_NSCameraUsageDescription: "Camera access is used to measure your room and furniture on this device."
+        INFOPLIST_KEY_UIFileSharingEnabled: true
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: true
+        SWIFT_VERSION: 5.9
