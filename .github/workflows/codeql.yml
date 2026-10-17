@@ -44,7 +44,7 @@ jobs:
 
       - name: Install XcodeGen
         if: matrix.language == 'swift'
-        run: brew install xcodegen
+        run: arch -arm64 brew install xcodegen
 
       - name: Generate the Xcode project from its spec
         if: matrix.language == 'swift'
