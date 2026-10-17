@@ -1,0 +1,65 @@
+name: "CodeQL Advanced"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+            runner: ubuntu-latest
+          - language: swift
+            build-mode: manual
+            runner: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Install XcodeGen
+        if: matrix.language == 'swift'
+        run: arch -arm64 brew install xcodegen
+
+      - name: Generate the Xcode project from its spec
+        if: matrix.language == 'swift'
+        run: xcodegen generate --spec ios/RoomScanning/project.yml
+
+      - name: Build iOS app for Swift analysis
+        if: matrix.language == 'swift'
+        run: >-
+          xcodebuild
+          -project ios/RoomScanning/RoomScanning.xcodeproj
+          -scheme RoomScanning
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/RoomScanningDerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
