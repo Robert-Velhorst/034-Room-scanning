@@ -68,12 +68,26 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
         else { view.captureSession.stop() }
     }
 
+    @MainActor
+    @objc(RoomScanningCaptureCoordinator)
     final class Coordinator: NSObject, RoomCaptureViewDelegate {
         private let parent: RoomCaptureViewRepresentable
         weak var view: RoomCaptureView?
         private var running = false
 
         init(parent: RoomCaptureViewRepresentable) { self.parent = parent }
+
+        // Capture bindings and an active AR session are transient UI state.
+        // They cannot be reconstructed safely from an archive.
+        nonisolated required init?(coder: NSCoder) { return nil }
+
+        nonisolated func encode(with coder: NSCoder) {
+            coder.failWithError(NSError(
+                domain: "online.noodzakelijk.roomscanning",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "A live room capture coordinator cannot be archived."]
+            ))
+        }
 
         func start() {
             guard !running, let view else { return }
@@ -82,10 +96,11 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
             view.captureSession.run(configuration: configuration)
         }
 
-        func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool { true }
+        nonisolated func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool { true }
 
-        func captureView(didPresent room: CapturedRoom, error: Error?) {
-            DispatchQueue.main.async {
+        nonisolated func captureView(didPresent room: CapturedRoom, error: Error?) {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 self.running = false
                 if let error { self.parent.errorText = error.localizedDescription }
                 else { self.parent.capturedRoom = room }
@@ -99,5 +114,5 @@ struct RoomJSONDocument: FileDocument {
     var data: Data
     init(data: Data) { self.data = data }
     init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
-    func fileWrapper(configuration: WriteConfiguration) throws { FileWrapper(regularFileWithContents: data) }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
