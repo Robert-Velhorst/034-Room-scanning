@@ -68,12 +68,25 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
         else { view.captureSession.stop() }
     }
 
+    @objc(RoomScanningCaptureCoordinator)
     final class Coordinator: NSObject, RoomCaptureViewDelegate {
         private let parent: RoomCaptureViewRepresentable
         weak var view: RoomCaptureView?
         private var running = false
 
         init(parent: RoomCaptureViewRepresentable) { self.parent = parent }
+
+        // Capture bindings and an active AR session are transient UI state.
+        // They cannot be reconstructed safely from an archive.
+        required init?(coder: NSCoder) { return nil }
+
+        func encode(with coder: NSCoder) {
+            coder.failWithError(NSError(
+                domain: "online.noodzakelijk.roomscanning",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "A live room capture coordinator cannot be archived."]
+            ))
+        }
 
         func start() {
             guard !running, let view else { return }
@@ -99,5 +112,5 @@ struct RoomJSONDocument: FileDocument {
     var data: Data
     init(data: Data) { self.data = data }
     init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
-    func fileWrapper(configuration: WriteConfiguration) throws { FileWrapper(regularFileWithContents: data) }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }

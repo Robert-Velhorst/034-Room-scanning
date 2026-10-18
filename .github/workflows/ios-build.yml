@@ -1,0 +1,28 @@
+name: iOS build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install XcodeGen
+        run: arch -arm64 brew install xcodegen
+      - name: Generate iOS project
+        run: xcodegen generate --spec ios/RoomScanning/project.yml
+      - name: Build Swift 6 simulator app
+        run: >-
+          xcodebuild
+          -project ios/RoomScanning/RoomScanning.xcodeproj
+          -scheme RoomScanning
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath "$RUNNER_TEMP/RoomScanningDerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          build
