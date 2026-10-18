@@ -16,4 +16,4 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "Camera access is used to measure your room and furniture on this device."
         INFOPLIST_KEY_UIFileSharingEnabled: true
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: true
-        SWIFT_VERSION: 5.9
+        SWIFT_VERSION: 6.0
