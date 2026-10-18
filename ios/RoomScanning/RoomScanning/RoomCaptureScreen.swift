@@ -68,6 +68,7 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
         else { view.captureSession.stop() }
     }
 
+    @MainActor
     @objc(RoomScanningCaptureCoordinator)
     final class Coordinator: NSObject, RoomCaptureViewDelegate {
         private let parent: RoomCaptureViewRepresentable
@@ -78,9 +79,9 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
 
         // Capture bindings and an active AR session are transient UI state.
         // They cannot be reconstructed safely from an archive.
-        required init?(coder: NSCoder) { return nil }
+        nonisolated required init?(coder: NSCoder) { return nil }
 
-        func encode(with coder: NSCoder) {
+        nonisolated func encode(with coder: NSCoder) {
             coder.failWithError(NSError(
                 domain: "online.noodzakelijk.roomscanning",
                 code: 1,
@@ -95,10 +96,11 @@ private struct RoomCaptureViewRepresentable: UIViewRepresentable {
             view.captureSession.run(configuration: configuration)
         }
 
-        func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool { true }
+        nonisolated func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool { true }
 
-        func captureView(didPresent room: CapturedRoom, error: Error?) {
-            DispatchQueue.main.async {
+        nonisolated func captureView(didPresent room: CapturedRoom, error: Error?) {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
                 self.running = false
                 if let error { self.parent.errorText = error.localizedDescription }
                 else { self.parent.capturedRoom = room }
