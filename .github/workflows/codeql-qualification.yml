@@ -1,0 +1,121 @@
+name: CodeQL current SDK qualification
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+jobs:
+  analyze:
+    name: Qualify ${{ matrix.language }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            runner: ubuntu-latest
+            build: none
+          - language: javascript-typescript
+            runner: ubuntu-latest
+            build: none
+          - language: python
+            runner: ubuntu-latest
+            build: none
+          - language: swift
+            runner: xcode-27
+            build: manual
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.15.1'
+      - name: Verify final Xcode and hash-pinned XcodeGen
+        if: matrix.language == 'swift'
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python scripts/prepare-ios-toolchain.py
+      - name: Generate and verify the current iOS target
+        if: matrix.language == 'swift'
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          xcodegen generate --spec ios/RoomScanning/project.yml
+          python scripts/prepare-ios-toolchain.py --build-settings
+      - name: Initialize current stable CodeQL
+        id: codeql
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build }}
+          queries: security-extended
+      - name: Record actual analysis tool and source
+        shell: bash
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          ANALYSIS_LANGUAGE: ${{ matrix.language }}
+          CODEQL_BIN: ${{ steps.codeql.outputs.codeql-path }}
+        run: |
+          set -euo pipefail
+          "$CODEQL_BIN" version --format=json > "$RUNNER_TEMP/codeql-version.json"
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          source = os.environ['SOURCE_HEAD']
+          source_tree = git('rev-parse', source + '^{tree}')
+          checked_tree = git('rev-parse', 'HEAD^{tree}')
+          if source_tree != checked_tree:
+              raise RuntimeError('Reconcile the source/base tree before qualifying analysis.')
+          receipt = {
+              'source_head': source, 'source_tree': source_tree,
+              'checked_out_revision': git('rev-parse', 'HEAD'),
+              'checked_out_tree': checked_tree,
+              'language': os.environ['ANALYSIS_LANGUAGE'],
+              'source_paths': git('ls-files').splitlines(),
+              'github_run_id': os.environ['GITHUB_RUN_ID'],
+              'github_run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'code_scanning_upload_enabled': False,
+          }
+          (pathlib.Path(os.environ['RUNNER_TEMP']) / 'codeql-source.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+      - name: Build the current Swift simulator target under CodeQL
+        if: matrix.language == 'swift'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/RoomScanning/RoomScanning.xcodeproj \
+            -scheme RoomScanning \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/RoomScanningCodeQLDerivedData" \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/room-scanning-codeql-build.log"
+      - name: Analyze without replacing the enabled default setup
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: qualification/${{ matrix.language }}
+          output: ${{ runner.temp }}/codeql-results
+          upload: never
+          upload-database: false
+      - name: Retain analysis results and toolchain evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: room-scanning-codeql-${{ matrix.language }}
+          path: |
+            ${{ runner.temp }}/codeql-results
+            ${{ runner.temp }}/codeql-version.json
+            ${{ runner.temp }}/codeql-source.json
+            ${{ runner.temp }}/room-scanning-toolchain.json
+            ${{ runner.temp }}/room-scanning-build-settings.json
+            ${{ runner.temp }}/room-scanning-codeql-build.log
+          retention-days: 14
+          if-no-files-found: warn
