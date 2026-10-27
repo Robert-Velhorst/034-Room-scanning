@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "python": "3.15.1",
+  "python": "3.15.2",
   "xcode": "27.1",
   "xcode_build": "27A9275",
   "ios_sdk": "27.1",
