@@ -9,7 +9,9 @@ import sys
 assert os.environ.get('GITHUB_ACTIONS') == 'true'
 assert sys.argv[1:] in (['before'], ['after'])
 root = Path(__file__).resolve().parents[2]
-out = Path(os.environ['RUNNER_TEMP']) / 'room-scanning-source-binding'
+if os.environ.get('RUNNER_TEMP') != '/Users/runner/work/_temp':
+    raise RuntimeError('Only the reviewed disposable macOS runner temp root is allowed')
+out = Path('/Users/runner/work/_temp/room-scanning-source-binding')
 out.mkdir(exist_ok=True)
 records = {}
 for entry in subprocess.check_output(['git', 'ls-files', '-s', '-z'], cwd=root).split(b'\0'):

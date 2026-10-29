@@ -16,7 +16,17 @@ TEAM = "V9AUD2URP3"
 
 def main():
     assert os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_OS") == "macOS"
-    folder = Path(os.environ["RUNNER_TEMP"]) / "packing-current-stable-swift"
+    if os.environ.get("RUNNER_TEMP") != "/Users/runner/work/_temp":
+        raise RuntimeError("Only the reviewed disposable macOS runner temp root is allowed")
+    command_root = Path("/Users/runner/work/_temp/_runner_file_commands")
+    supplied_env = Path(os.environ["GITHUB_ENV"])
+    env_name = supplied_env.name
+    if not re.fullmatch(r"set_env_[0-9a-f-]{36}", env_name):
+        raise RuntimeError("Unexpected runner environment-command filename")
+    env_path = command_root / env_name
+    if supplied_env != env_path or env_path.resolve(strict=True) != env_path or not env_path.is_file():
+        raise RuntimeError("Runner environment-command file escapes its fixed root")
+    folder = Path("/Users/runner/work/_temp/packing-current-stable-swift")
     folder.mkdir(exist_ok=False)
     evidence = {"version": VERSION, "url": URL, "expected_signer": SIGNER, "commands": [], "installed": False}
 
@@ -64,7 +74,8 @@ def main():
         assert actual_path.is_relative_to(toolchain.resolve()), "xcrun did not select the verified toolchain"
         version = run("actual-swift-version", ["xcrun", "swift", "--version"], env=selected)
         assert re.search(r"\bSwift version 6\.4\.1\b", version), "Compiler version differs from the pinned stable release"
-        with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as stream:
+        descriptor = os.open(env_path, os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as stream:
             stream.write("TOOLCHAINS=" + identifier + "\n")
         evidence.update({"toolchain_identifier": identifier, "actual_compiler": str(actual_path), "actual_version": version, "signature_and_selection_verified": True})
     finally:
