@@ -19,6 +19,12 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.15.2'
+      - name: Bind original source inputs
+        run: python .github/qualification/bind-source.py before
+      - name: Verify and select signed official stable Swift 6.4.1
+        run: python .github/qualification/install-current-stable-swift.py
+      - name: Compose private selected Swift with verified Apple linker
+        run: python .github/qualification/compose-current-apple-linker.py
       - name: Verify final Xcode and hash-pinned XcodeGen
         env:
           SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -51,3 +57,19 @@ jobs:
             ${{ runner.temp }}/room-scanning-build.log
           retention-days: 14
           if-no-files-found: warn
+      - name: Verify all tracked source payloads remain unchanged
+        if: always()
+        run: python .github/qualification/bind-source.py after
+      - name: Preserve source, signed compiler and platform integration evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: room-scanning-current-Swift-source-proof
+          path: |
+            ${{ runner.temp }}/room-scanning-source-binding/*.json
+            ${{ runner.temp }}/packing-current-stable-swift/*.json
+            ${{ runner.temp }}/packing-current-stable-swift/*.log
+            ${{ runner.temp }}/packing-current-apple-linker/*.json
+            ${{ runner.temp }}/packing-current-apple-linker/*.log
+          retention-days: 14
+          if-no-files-found: error
