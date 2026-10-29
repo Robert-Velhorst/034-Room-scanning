@@ -27,5 +27,11 @@ for entry in subprocess.check_output(['git', 'ls-files', '-s', '-z'], cwd=root).
     records[path] = {'blob': blob, 'sha256': hashlib.sha256(payload).hexdigest()}
 if sys.argv[1] == 'after':
     assert records == json.loads((out / 'source-before.json').read_text()), 'Tracked inputs changed during qualification'
-(out / ('source-' + sys.argv[1] + '.json')).write_text(json.dumps(records, indent=2) + '\n')
+if sys.argv[1:] == ['before']:
+    output_file = out / 'source-before.json'
+elif sys.argv[1:] == ['after']:
+    output_file = out / 'source-after.json'
+else:
+    raise RuntimeError('Unknown source-binding phase')
+output_file.write_text(json.dumps(records, indent=2) + '\n')
 print(json.dumps({'phase': sys.argv[1], 'Git_bound_source_payloads': len(records)}))
