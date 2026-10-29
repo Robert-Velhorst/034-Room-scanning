@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "python": "3.15.1",
+  "python": "3.15.2",
   "xcode": "27.1",
   "xcode_build": "27A9275",
   "ios_sdk": "27.1",
   "swift_language_mode": "6.0",
-  "apple_swift": "6.4",
+  "apple_swift": "6.4.1",
   "xcodegen": "2.46.0",
   "xcodegen_sha256": "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806",
   "xcode_release_source": "https://developer.apple.com/news/releases/?id=10152026a",
